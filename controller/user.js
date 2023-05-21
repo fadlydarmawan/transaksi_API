@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const db = require("../db/database");
+const jwt = require("jsonwebtoken");
 
 function signup(req, res) {
   const saltRounds = 10;
@@ -8,6 +9,7 @@ function signup(req, res) {
   console.log(req.body.password);
   db.konek.query(
     `INSERT INTO user (username,password) VALUES ("${req.body.username}","${hash}")`,
+  
     function (err, result) {
       if (err) {
         res.status(400).send({
@@ -26,52 +28,36 @@ function signup(req, res) {
 }
 
 function signin(req, res) {
-  const { username, password } = req.body;
+  const { username} = req.body;
   console.log(username);
   db.konek.query(
     `SELECT * FROM user WHERE username = '${username}'`,
+
     function (err, result) {
-      if (err) {
-        res.status(400).send({
-          status: 400,
-          message: "Username or Password invalid",
-        });
+      if(err) throw err;
+      
+      if(result.length === 0) {
+        res.status(400).json({
+          message: "Username Not found"
+        })
       } else {
-        console.log(req.body.password);
-        console.log(result[0].password);
-        const passwordChecking = bcrypt.compareSync(
-          password,
-          result[0].password
-        );
-        console.log(passwordChecking);
-        if (passwordChecking) {
-          res.status(201).send({
-            status: 201,
-            data: result,
-            message: "Username or Password Valid",
-          });
+        console.log(result[0])
+        if(bcrypt.compareSync(req.body.password.toString(), result[0].password)) {
+          const token = jwt.sign({
+            username: result[0].username,
+          },`secret_key`,{expiresIn: 60})
+          res.status(200).json({
+            token: token,
+            message: "succesfully Login",
+            data: result[0]
+          })
         } else {
-          res.status(400).send({
-            status: 400,
-            message: "Username or Password InCorrect, Check Again",
-          });
+          res.status(400).json({
+            message: "Wrong Password"
+          })
         }
       }
-    }
-  );
-}
+      });
+  }
 
-module.exports = { signup, signin };
-
-// user
-// const createdUser =
-// }
-// if (err) {
-//     res.status(400).json({
-//         errStatus: true,
-//         msgerr : err.message
-//     })
-// }else { res.status(200).json({
-//     error: result.array(),
-//     message:"succesfully"
-//   }) }
+  module.exports = {signup, signin}
